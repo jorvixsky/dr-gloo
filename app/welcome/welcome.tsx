@@ -1,5 +1,6 @@
 import { Button } from "~/components/ui/button";
 import { Link } from "react-router";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 export function Welcome() {
   return (
@@ -11,6 +12,7 @@ export function Welcome() {
             <span>Just a button to test!</span>
           </Link>
         </Button>
+        <ConnectButton />
       </div>
     </main>
   );
