@@ -29,7 +29,6 @@ const config = {
 };
 
 export async function startDiscoveryAndConnect() {
-    await dmk.close();
     await firstValueFrom(dmk.startDiscovering({ transport: undefined }));
     const devices = await firstValueFrom(dmk.listenToAvailableDevices({ transport: undefined }));
     if (!devices || devices.length === 0) {
@@ -67,21 +66,38 @@ export async function startDiscoveryAndConnect() {
         signerEth.getAddress(DEFAULT_DERIVATION_PATH, {
             checkOnDevice: true,
             returnChainCode: true,
-            skipOpenApp: true,
+            skipOpenApp: false,
         }).observable;
     
-    // getAddressObservable.subscribe({
-    //     next: (address) => {
-    //         console.log(`Address:`, address);
-    //     },
-    //     error: (error) => {
-    //         console.error(`Error getting address:`, error);
-    //     },
-    //     complete: () => {
-    //         console.log(`Address retrieval complete.`);
-    //     }
-    // });
-    const observedAddress = await firstValueFrom(getAddressObservable.pipe(filter(a => a.status === "completed")));
+    getAddressObservable.subscribe({
+        next: (address) => {
+            console.log(`Address:`, JSON.stringify(address));
+        },
+        error: (error) => {
+            console.error(`Error getting address:`, error);
+        },
+        complete: () => {
+            console.log(`Address retrieval complete.`);
+        }
+    });
+
+    console.log(`🦖 Requesting address with derivation path: ${DEFAULT_DERIVATION_PATH}`);
+    let observedAddress ;//= await firstValueFrom(getAddressObservable.pipe(filter(a => a.status === "completed")));
+    
+    try {
+      observedAddress = await firstValueFrom(
+        getAddressObservable.pipe(
+          filter((a) => a.status === "completed")
+        )
+      );
+
+      console.log("✅ Completed address:", observedAddress);
+    } catch (err) {
+      console.error("❌ No completed result:", err);
+      throw err;
+    }
+
+    console.log(`🦖 Response from getAddress: ${JSON.stringify(observedAddress)} 🎉`);
     address = observedAddress.output.address;
     publicKey = observedAddress.output.publicKey;
 
