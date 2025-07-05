@@ -11,22 +11,7 @@ import { SignerEthBuilder } from "@ledgerhq/device-signer-kit-ethereum";
 import { filter, firstValueFrom } from "rxjs";
 import { ethers } from "ethers";
 import { dmk } from "./dmk";
-
-const DEFAULT_DERIVATION_PATH = "44'/60'/0'/0/0";
-
-const config = {
-  calConfig: {
-    url: "https://crypto-assets-service.api.ledger.com/v1",
-    mode: "prod" as ContextModuleCalMode,
-    branch: "main" as ContextModuleCalBranch, // or "next" or "demo"
-  },
-  web3ChecksConfig: {
-    url: "https://web3checks-backend.api.ledger.com/v3",
-  },
-  metadataServiceConfig: {
-    url: "https://nft.api.live.ledger.com/v2",
-  },
-};
+import { DEFAULT_DERIVATION_PATH, config } from "./config"
 
 export async function startDiscoveryAndConnect() {
     await firstValueFrom(dmk.startDiscovering({ transport: undefined }));
@@ -69,17 +54,17 @@ export async function startDiscoveryAndConnect() {
             skipOpenApp: false,
         }).observable;
     
-    getAddressObservable.subscribe({
-        next: (address) => {
-            console.log(`Address:`, JSON.stringify(address));
-        },
-        error: (error) => {
-            console.error(`Error getting address:`, error);
-        },
-        complete: () => {
-            console.log(`Address retrieval complete.`);
-        }
-    });
+    // getAddressObservable.subscribe({
+    //     next: (address) => {
+    //         console.log(`Address:`, JSON.stringify(address));
+    //     },
+    //     error: (error) => {
+    //         console.error(`Error getting address:`, error);
+    //     },
+    //     complete: () => {
+    //         console.log(`Address retrieval complete.`);
+    //     }
+    // });
 
     console.log(`🦖 Requesting address with derivation path: ${DEFAULT_DERIVATION_PATH}`);
     let observedAddress ;//= await firstValueFrom(getAddressObservable.pipe(filter(a => a.status === "completed")));
