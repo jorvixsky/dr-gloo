@@ -14,10 +14,9 @@ import { dmk } from "./dmk";
 import type { LedgerConnection } from "./models/ledger-connection";
 import { DEFAULT_DERIVATION_PATH, config } from "./config"
 
-const message = "Hello, World!";
 const skipOpenApp = false;
 
-export async function signHelloWorld(sessionId: string) {
+export async function signMessage(sessionId: string, message: string): Promise<{ r: string, s: string, v: number }> {
 
     const contextModule = new ContextModuleBuilder({
           originToken: "origin-token", // TODO: replace with your origin token
@@ -35,16 +34,16 @@ export async function signHelloWorld(sessionId: string) {
     const messageObservable = signerEth.signMessage(DEFAULT_DERIVATION_PATH, message, { skipOpenApp }).observable;
     
     console.log(`🦖 Requesting Hello world signing message`);
-    let helloWorldMessageRes = await firstValueFrom(messageObservable.pipe(
+    let messageRes = await firstValueFrom(messageObservable.pipe(
         filter((res) => res.status === DeviceActionStatus.Completed
     )));
     
     
-    console.log(`🦖 Response from signMessage: ${JSON.stringify(helloWorldMessageRes)} 🎉`);
+    console.log(`🦖 Response from signMessage: ${JSON.stringify(messageRes)} 🎉`);
 
     return {
-      r: helloWorldMessageRes.output.r,
-      s: helloWorldMessageRes.output.s,
-      v: helloWorldMessageRes.output.v
+      r: messageRes.output.r,
+      s: messageRes.output.s,
+      v: messageRes.output.v
     }
 }

@@ -1,11 +1,11 @@
 // src/components/LedgerConnectButton.tsx
 import { Button } from "~/components/ui/button";
-import { signHelloWorld } from "~/lib/ledger/sign-helloworld";
-import type { HelloWorldTransactionResult } from "../../lib/ledger/models/hello-world-transaction-result";
+import { signMessage } from "~/lib/ledger/sign-message";
+import type { TransactionResult } from "../../lib/ledger/models/transaction-result";
 
 interface LedgerHelloWorldButtonProps {
   sessionId?: string;
-  onHelloWorld?: (result: HelloWorldTransactionResult) => void;
+  onHelloWorld?: (result: TransactionResult) => void;
 }
 
 export const LedgerHelloWorldButton = ({sessionId, onHelloWorld}: LedgerHelloWorldButtonProps) => {
@@ -14,7 +14,7 @@ export const LedgerHelloWorldButton = ({sessionId, onHelloWorld}: LedgerHelloWor
       if(!sessionId) {
         throw new Error("Session ID is required to sign Hello World");
       }
-      const result = await signHelloWorld(sessionId);
+      const result = await signMessage(sessionId, "Hello world");
       console.log(result);
       onHelloWorld?.(result);
     } catch (err: any) {

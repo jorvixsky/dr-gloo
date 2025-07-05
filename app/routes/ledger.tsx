@@ -5,7 +5,7 @@ import { LedgerDisconnectButton } from "../components/ledger/LedgerDisconnectBut
 import type { LedgerConnection } from "~/lib/ledger/models/ledger-connection";
 import { LedgerInformation } from "../components/ledger/LedgerInformation";
 import { LedgerHelloWorldButton } from "../components/ledger/LedgerHelloWorldButton";
-import type { HelloWorldTransactionResult } from "~/lib/ledger/models/hello-world-transaction-result";
+import type { TransactionResult } from "~/lib/ledger/models/transaction-result";
 
 
 // const LedgerConnectButton = React.lazy(() =>
@@ -14,7 +14,7 @@ import type { HelloWorldTransactionResult } from "~/lib/ledger/models/hello-worl
 
 export default function LedgerPage() {
   const [ledgerInfo, setLedgerInfo] = React.useState<LedgerConnection|undefined>(undefined);
-  const [helloWorldTransactionResult, setHelloWorldTransactionResult] = React.useState<HelloWorldTransactionResult|undefined>(undefined);
+  const [helloWorldTransactionResult, setHelloWorldTransactionResult] = React.useState<TransactionResult|undefined>(undefined);
 
   const handleConnect = (params: LedgerConnection) => {
     console.log("Connected with params:", params);
@@ -26,7 +26,7 @@ export default function LedgerPage() {
     setLedgerInfo(undefined);
   };
 
-  const handleHelloWorld = (result: HelloWorldTransactionResult) => {
+  const handleHelloWorld = (result: TransactionResult) => {
     console.log("Hello World transaction result:", result);
     setHelloWorldTransactionResult(result);
   };
