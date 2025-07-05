@@ -5,7 +5,8 @@ import { LedgerDisconnectButton } from "../components/ledger/LedgerDisconnectBut
 import type { LedgerConnection } from "~/lib/ledger/models/ledger-connection";
 import { LedgerInformation } from "../components/ledger/LedgerInformation";
 import { LedgerHelloWorldButton } from "../components/ledger/LedgerHelloWorldButton";
-import type { TransactionResult } from "~/lib/ledger/models/transaction-result";
+import type { TransactionResult } from "~/lib/ledger/models/transaction";
+import { LedgerDummyTransactionButton } from "../components/ledger/LedgerDummyTransactionButton";
 
 
 // const LedgerConnectButton = React.lazy(() =>
@@ -15,7 +16,8 @@ import type { TransactionResult } from "~/lib/ledger/models/transaction-result";
 export default function LedgerPage() {
   const [ledgerInfo, setLedgerInfo] = React.useState<LedgerConnection|undefined>(undefined);
   const [helloWorldTransactionResult, setHelloWorldTransactionResult] = React.useState<TransactionResult|undefined>(undefined);
-
+  const [dummyTransactionResult, setDummyTransactionResult] = React.useState<TransactionResult|undefined>(undefined);
+  
   const handleConnect = (params: LedgerConnection) => {
     console.log("Connected with params:", params);
     setLedgerInfo(params);
@@ -29,6 +31,11 @@ export default function LedgerPage() {
   const handleHelloWorld = (result: TransactionResult) => {
     console.log("Hello World transaction result:", result);
     setHelloWorldTransactionResult(result);
+  };
+
+  const handleDummyTransaction = (result: TransactionResult) => {
+    console.log("Dummy transaction result:", result);
+    setDummyTransactionResult(result);
   };
 
 
@@ -58,6 +65,20 @@ export default function LedgerPage() {
               </div>
           ) : (
             <p>No Hello World transaction result yet.</p>
+          )}
+          <LedgerDummyTransactionButton
+            sessionId={ledgerInfo.sessionId}
+            onDummyTransaction={handleDummyTransaction}
+          />
+          {(dummyTransactionResult) ? (
+            <div>
+              <h2>Dummy Transaction Result</h2>
+              <p>R: {dummyTransactionResult.r}</p>
+              <p>S: {dummyTransactionResult.s}</p>
+              <p>V: {dummyTransactionResult.v}</p>
+            </div>
+          ) : (
+            <p>No Dummy transaction result yet.</p>
           )}
         </div>
         ) : (

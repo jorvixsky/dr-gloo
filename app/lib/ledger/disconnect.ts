@@ -1,15 +1,5 @@
 // src/app/lib/ledger.ts
-import {
-  DeviceManagementKitBuilder,
-  ConsoleLogger,
-  OpenAppCommand,
-  DeviceActionStatus
-} from "@ledgerhq/device-management-kit";
-import { webHidTransportFactory } from "@ledgerhq/device-transport-kit-web-hid";
-import { ContextModuleBuilder, type ContextModuleCalMode, type ContextModuleCalBranch } from "@ledgerhq/context-module";
-import { SignerEthBuilder } from "@ledgerhq/device-signer-kit-ethereum";
-import { filter, firstValueFrom } from "rxjs";
-import { ethers } from "ethers";
+import { type ContextModuleCalBranch, type ContextModuleCalMode } from "@ledgerhq/context-module";
 import { dmk } from "./dmk";
 
 const DEFAULT_DERIVATION_PATH = "44'/60'/0'/0/0";

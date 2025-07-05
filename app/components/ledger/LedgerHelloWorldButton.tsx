@@ -1,7 +1,7 @@
 // src/components/LedgerConnectButton.tsx
 import { Button } from "~/components/ui/button";
 import { signMessage } from "~/lib/ledger/sign-message";
-import type { TransactionResult } from "../../lib/ledger/models/transaction-result";
+import type { TransactionResult } from "../../lib/ledger/models/transaction";
 
 interface LedgerHelloWorldButtonProps {
   sessionId?: string;
