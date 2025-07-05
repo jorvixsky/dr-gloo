@@ -4,6 +4,7 @@ import type {
   ColumnFiltersState,
   SortingState,
   VisibilityState,
+  RowSelectionState,
 } from "@tanstack/react-table"
 import {
   flexRender,
@@ -29,23 +30,24 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu"
-import { ChevronDown, Filter, Wallet, Coins, Link } from "lucide-react"
+import { Filter, Wallet, Coins, Link } from "lucide-react"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   connectedAddresses?: readonly string[]
+  onRowSelectionChange?: (value: RowSelectionState) => void
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
-  connectedAddresses = [],
+  onRowSelectionChange,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-  const [rowSelection, setRowSelection] = React.useState({})
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [selectedAddresses, setSelectedAddresses] = React.useState<string[]>([])
   const [selectedTokens, setSelectedTokens] = React.useState<string[]>([])
   const [selectedChains, setSelectedChains] = React.useState<string[]>([])
@@ -133,6 +135,13 @@ export function DataTable<TData, TValue>({
       })
     }
   }, [selectedChains])
+
+  // Update parent component when row selection changes
+  React.useEffect(() => {
+    if (onRowSelectionChange) {
+      onRowSelectionChange(rowSelection)
+    }
+  }, [rowSelection, onRowSelectionChange])
 
   const table = useReactTable({
     data,
