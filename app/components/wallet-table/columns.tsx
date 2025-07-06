@@ -37,6 +37,9 @@ function getExplorerUrl(chain: string, tokenAddress: string): string {
     case "Ethereum":
       baseUrl = "https://etherscan.io";
       break;
+    case "Avalanche":
+      baseUrl = "https://snowtrace.io";
+      break;
     case "Base":
       baseUrl = "https://basescan.org";
       break;
@@ -48,6 +51,12 @@ function getExplorerUrl(chain: string, tokenAddress: string): string {
       break;
     case "OP Mainnet":
       baseUrl = "https://optimistic.etherscan.io";
+      break;
+    case "Unichain":
+      baseUrl = "https://uniscan.io";
+      break;
+    case "Linea":
+      baseUrl = "https://lineascan.build";
       break;
   }
   

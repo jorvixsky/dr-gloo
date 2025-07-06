@@ -32,9 +32,9 @@ export function useCrossChainTransfer() {
 
   const switchChain = async (client: WalletClient<HttpTransport, Chain, Account>, chainId: number) => {
     try {
-      await client.switchChain({ id: chainId });
+      return client.switchChain({ id: chainId });
     } catch (err) {
-      await client.addChain({
+      return client.addChain({
         chain: chains[chainId as keyof typeof chains] as Chain,
       })
     }

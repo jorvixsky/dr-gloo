@@ -5,8 +5,8 @@ import { useConnectedAddresses } from "~/lib/wagmi";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "Dr Gloo" },
+    { name: "description", content: "Dr Gloo is a cross-chain token consolidator" },
   ];
 }
 
