@@ -11,69 +11,36 @@ import {
   TransactionExecutionError,
   parseUnits,
   formatUnits,
-  parseEther,
 } from "viem";
-import { chainIdToDomain, messageTransmitter, tokenAddresses, tokenMessenger } from "../lib/cctp-contracts";
-import { usePublicClient, useSwitchChain } from "wagmi";
+import { chains, chainIdToDomain, messageTransmitter, tokenAddresses, tokenMessenger } from "../lib/cctp-contracts";
+import { usePublicClient } from "wagmi";
 
 export type TransferStep =
   | "idle"
-  | "approving"
   | "burning"
   | "waiting-attestation"
   | "minting"
   | "completed"
   | "error";
 
-
 export function useCrossChainTransfer() {
   const publicClient = usePublicClient();
-  const { switchChain } = useSwitchChain();
   const [currentStep, setCurrentStep] = useState<TransferStep>("idle");
-  const [logs, setLogs] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const DEFAULT_DECIMALS = 6;
 
-  // EVM functions (existing)
-  const approveUSDC = async (
-    client: WalletClient<HttpTransport, Chain, Account>,
-    sourceChainId: number,
-  ) => {
-    setCurrentStep("approving");
-
+  const switchChain = async (client: WalletClient<HttpTransport, Chain, Account>, chainId: number) => {
     try {
-      const tx = await client.sendTransaction({
-        to: tokenAddresses[sourceChainId as keyof typeof tokenAddresses] as `0x${string}`,
-        data: encodeFunctionData({
-          abi: [
-            {
-              type: "function",
-              name: "approve",
-              stateMutability: "nonpayable",
-              inputs: [
-                { name: "spender", type: "address" },
-                { name: "amount", type: "uint256" },
-              ],
-              outputs: [{ name: "", type: "bool" }],
-            },
-          ],
-          functionName: "approve",
-          args: [
-            tokenMessenger[sourceChainId] as `0x${string}`,
-            10000000000n,
-          ],
-        }),
-      });
-
-      return tx;
+      await client.switchChain({ id: chainId });
     } catch (err) {
-      setError("Approval failed");
-      throw err;
+      await client.addChain({
+        chain: chains[chainId as keyof typeof chains] as Chain,
+      })
     }
-  };
+  }
 
-  const burnUSDC = async (
+  const approveAndBurnUSDC = async (
     client: WalletClient<HttpTransport, Chain, Account>,
     sourceChainId: number,
     amount: bigint,
@@ -91,38 +58,79 @@ export function useCrossChainTransfer() {
         .replace(/^0x/, "")
         .padStart(64, "0")}`;
 
-      const tx = await client.sendTransaction({
-        to: tokenMessenger[sourceChainId] as `0x${string}`,
-        data: encodeFunctionData({
-          abi: [
-            {
-              type: "function",
-              name: "depositForBurn",
-              stateMutability: "nonpayable",
-              inputs: [
-                { name: "amount", type: "uint256" },
-                { name: "destinationDomain", type: "uint32" },
-                { name: "mintRecipient", type: "bytes32" },
-                { name: "burnToken", type: "address" },
-                { name: "hookData", type: "bytes32" },
-                { name: "maxFee", type: "uint256" },
-                { name: "finalityThreshold", type: "uint32" },
+      await switchChain(client, sourceChainId);
+
+      const calls = await client.sendCalls({
+        chain: chains[sourceChainId as keyof typeof chains] as Chain,
+        forceAtomic: true,
+        calls: [
+          {
+            to: tokenAddresses[sourceChainId as keyof typeof tokenAddresses] as `0x${string}`,
+            data: encodeFunctionData({
+              abi: [
+                {
+                  type: "function",
+                  name: "approve",
+                  stateMutability: "nonpayable",
+                  inputs: [
+                    { name: "spender", type: "address" },
+                    { name: "amount", type: "uint256" },
+                  ],
+                  outputs: [{ name: "", type: "bool" }],
+                },
               ],
-              outputs: [],
-            },
-          ],
-          functionName: "depositForBurn",
-          args: [
-            amount,
-            chainIdToDomain[destinationChainId],
-            mintRecipient as Hex,
-            tokenAddresses[sourceChainId as keyof typeof tokenAddresses] as `0x${string}`,
-            "0x0000000000000000000000000000000000000000000000000000000000000000",
-            maxFee,
-            finalityThreshold,
-          ],
-        }),
+              functionName: "approve",
+              args: [
+                tokenMessenger[sourceChainId] as `0x${string}`,
+                amount,
+              ],
+            }),
+          },
+          {
+            to: tokenMessenger[sourceChainId] as `0x${string}`,
+            data: encodeFunctionData({
+              abi: [
+                {
+                  type: "function",
+                  name: "depositForBurn",
+                  stateMutability: "nonpayable",
+                  inputs: [
+                    { name: "amount", type: "uint256" },
+                    { name: "destinationDomain", type: "uint32" },
+                    { name: "mintRecipient", type: "bytes32" },
+                    { name: "burnToken", type: "address" },
+                    { name: "hookData", type: "bytes32" },
+                    { name: "maxFee", type: "uint256" },
+                    { name: "finalityThreshold", type: "uint32" },
+                  ],
+                  outputs: [],
+                },
+              ],
+              functionName: "depositForBurn",
+              args: [
+                amount,
+                chainIdToDomain[destinationChainId],
+                mintRecipient as Hex,
+                tokenAddresses[sourceChainId as keyof typeof tokenAddresses] as `0x${string}`,
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                maxFee,
+                finalityThreshold,
+              ],
+            }),
+          }
+        ]
       });
+
+
+      const status = await client.waitForCallsStatus({
+        id: calls.id,
+      });
+
+      const tx = status.receipts?.[0]?.transactionHash;
+
+      if (!tx) {
+        throw new Error("Burn transaction failed");
+      }
 
       console.log(`Burn Tx: ${tx}`);
       return tx;
@@ -155,7 +163,7 @@ export function useCrossChainTransfer() {
 
         const responseData = await response.json();
         if (responseData?.messages?.[0]?.status === "complete") {
-          console.log("Attestation retrieved!");
+          console.log("Attestation retrieved!", url);
           return responseData.messages[0];
         }
 
@@ -176,12 +184,14 @@ export function useCrossChainTransfer() {
   const mintUSDC = async (
     client: WalletClient<HttpTransport, Chain, Account>,
     destinationChainId: number,
-    attestation: any,
+    attestations: {message: `0x${string}`, attestation: `0x${string}`}[],
   ) => {
     const MAX_RETRIES = 3;
     let retries = 0;
     setCurrentStep("minting");
     console.log("Minting USDC...");
+
+    await switchChain(client, destinationChainId);
 
     while (retries < MAX_RETRIES) {
         if (!publicClient) {
@@ -190,6 +200,7 @@ export function useCrossChainTransfer() {
       try {
         const feeData = await publicClient.estimateFeesPerGas();
         const contractConfig = {
+          chain: chains[destinationChainId as keyof typeof chains] as Chain,
           address: messageTransmitter[
             destinationChainId
           ] as `0x${string}`,
@@ -207,31 +218,49 @@ export function useCrossChainTransfer() {
           ] as const,
         };
 
-        // Estimate gas with buffer
-        const gasEstimate = await publicClient.estimateContractGas({
-          ...contractConfig,
-          functionName: "receiveMessage",
-          args: [attestation.message, attestation.attestation],
-          account: client.account,
-        });
-
-        // Add 20% buffer to gas estimate
-        const gasWithBuffer = (gasEstimate * 120n) / 100n;
-        console.log(`Gas Used: ${formatUnits(gasWithBuffer, 9)} Gwei`);
-
-        const tx = await client.sendTransaction({
-          to: contractConfig.address,
-          data: encodeFunctionData({
+        const calls = [];
+        for (const attestation of attestations) {
+          // Estimate gas with buffer
+          const gasEstimate = await publicClient.estimateContractGas({
             ...contractConfig,
-            functionName: "receiveMessage",
+            functionName: "receiveMessage", 
             args: [attestation.message, attestation.attestation],
-          }),
-          gas: gasWithBuffer,
-          maxFeePerGas: feeData.maxFeePerGas,
-          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+            account: client.account,
+          });
+
+          // Add 20% buffer to gas estimate
+          const gasWithBuffer = (gasEstimate * 120n) / 100n;
+          console.log(`Gas Used: ${formatUnits(gasWithBuffer, 9)} Gwei`);
+
+          calls.push({
+            to: contractConfig.address,
+            data: encodeFunctionData({
+              ...contractConfig,
+              functionName: "receiveMessage",
+              args: [attestation.message, attestation.attestation],
+            }),
+            chain: chains[destinationChainId as keyof typeof chains] as Chain,
+            gas: gasWithBuffer,
+            maxFeePerGas: feeData.maxFeePerGas,
+            maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+          });
+        }
+
+        const mintCalls = await client.sendCalls({
+          chain: chains[destinationChainId as keyof typeof chains] as Chain,
+          forceAtomic: true,
+          calls,
         });
 
-        console.log(`Mint Tx: ${tx}`);
+        const status = await client.waitForCallsStatus({
+          id: mintCalls.id,
+        });
+
+        const tx = status.receipts?.[0]?.transactionHash;
+
+        if (!tx) {
+          throw new Error("Mint transaction failed");
+        }
         setCurrentStep("completed");
         break;
       } catch (err) {
@@ -246,10 +275,11 @@ export function useCrossChainTransfer() {
     }
   };
 
-  const executeTransfer = async (
-    sourceChainId: number,
+  const executeTransfers = async (
+    sourceChainIds: number[],
     destinationChainId: number,
-    amount: string,
+    destinationAddress: string,
+    amounts: string[],
     walletClient: WalletClient<HttpTransport, Chain, Account>,
   ) => {
     try {
@@ -257,39 +287,29 @@ export function useCrossChainTransfer() {
         throw new Error("Public client not found");
       }
 
-      const numericAmount = parseUnits(amount, DEFAULT_DECIMALS);
+      const burnTxs = [];
+      for (let i = 0; i < sourceChainIds.length; i++) {
+        const sourceChainId = sourceChainIds[i];
+        const amount = amounts[i];
+        const numericAmount = parseUnits(amount, DEFAULT_DECIMALS);
 
-      await switchChain({ chainId: sourceChainId });
-
-      // Execute approve step
-      await approveUSDC(walletClient, sourceChainId);
-
-      // Execute burn step
-      const burnTx = await burnUSDC(
-        walletClient,
-        sourceChainId,
-        numericAmount,
-        destinationChainId,
-        walletClient.account.address,
-      );
-
-      await switchChain({ chainId: destinationChainId });
-
-      // Retrieve attestation
-      const attestation = await retrieveAttestation(burnTx, sourceChainId);
-
-      // Check destination chain balance
-      const minBalance = parseEther("0.01"); // 0.01 native token
-
-      const balance = await publicClient.getBalance({
-        address: walletClient.account.address,
-      });
-      if (balance < minBalance) {
-        throw new Error("Insufficient native token for gas fees");
+        // Execute burn step sequentially
+        const burnTx = await approveAndBurnUSDC(
+          walletClient,
+          sourceChainId,
+          numericAmount,
+          destinationChainId,
+          destinationAddress
+        );
+        burnTxs.push(burnTx);
       }
 
+      const attestations = await Promise.all(burnTxs.map(async (burnTx, i) => {
+        return retrieveAttestation(burnTx, sourceChainIds[i]);
+      }));
+
       // Execute mint step
-      await mintUSDC(walletClient, destinationChainId, attestation);
+      await mintUSDC(walletClient, destinationChainId, attestations);
     } catch (error) {
       setCurrentStep("error");
       console.log(
@@ -300,15 +320,13 @@ export function useCrossChainTransfer() {
 
   const reset = () => {
     setCurrentStep("idle");
-    setLogs([]);
     setError(null);
   };
 
   return {
     currentStep,
-    logs,
     error,
-    executeTransfer,
+    executeTransfers,
     reset,
   };
 }

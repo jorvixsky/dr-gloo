@@ -18,6 +18,12 @@ import {
   SelectValue 
 } from "~/components/ui/select"
 import type { WalletData } from "~/components/wallet-table/columns"
+import { useCrossChainTransfer } from "~/hooks/use-cross-chain-transfer"
+import { useWalletClient } from "wagmi"
+import { getAddress, isAddress, parseUnits } from "viem"
+import type { Account, Chain, HttpTransport, WalletClient } from "viem"
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert"
+import { AlertCircle, CheckCircle2 } from "lucide-react"
 
 interface CollectTokensModalProps {
   walletData: WalletData[]
@@ -39,6 +45,17 @@ export function CollectTokensModal({
   const [estimatedAmount, setEstimatedAmount] = React.useState(0)
   const [open, setOpen] = React.useState(false)
 
+  const collectedTokens = React.useMemo(() => {
+    return Object.entries(rowSelection).filter(([rowId, isSelected]) => isSelected && walletData[parseInt(rowId)]).map(([rowId, isSelected]) => {
+      const token = walletData[parseInt(rowId)];
+      const amountToCollect = collectAmounts[rowId] || token.amount;
+      return { ...token, amountToCollect }
+    })
+  }, [rowSelection, walletData, collectAmounts])
+
+  const { executeTransfers, currentStep } = useCrossChainTransfer();
+  const { data: walletClient } = useWalletClient();
+
   // Calculate estimated USDC amount (with a 0.5% fee)
   React.useEffect(() => {
     const fee = 0.005 // 0.5%
@@ -48,35 +65,17 @@ export function CollectTokensModal({
 
   // Available chains for destination
   const availableChains = [
-    { id: "ethereum", name: "Ethereum" },
-    { id: "polygon", name: "Polygon" },
-    { id: "arbitrum", name: "Arbitrum" },
-    { id: "optimism", name: "Optimism" },
-    { id: "base", name: "Base" },
+    { id: "ethereum", name: "Ethereum", chainId: 1 },
+    { id: "avalanche", name: "Avalanche", chainId: 43114 },
+    { id: "optimism", name: "OP Mainnet", chainId: 10 },
+    { id: "arbitrum", name: "Arbitrum", chainId: 42161 },
+    { id: "base", name: "Base", chainId: 8453 },
+    { id: "polygon", name: "Polygon", chainId: 137 },
+    { id: "unichain", name: "Unichain", chainId: 167000 },
+    { id: "linea", name: "Linea", chainId: 59144 },
   ]
 
-  // Calculate the total number of tokens and how many are being partially collected
-  const tokenSummary = React.useMemo(() => {
-    let totalTokens = 0;
-    let partialTokens = 0;
-    
-    Object.entries(rowSelection).forEach(([rowId, isSelected]) => {
-      if (isSelected && walletData[parseInt(rowId)]) {
-        totalTokens++;
-        const token = walletData[parseInt(rowId)];
-        const amountToCollect = collectAmounts[rowId] || token.amount;
-        
-        // If collecting less than 99.9% of the token, consider it partial
-        if (amountToCollect < token.amount * 0.999) {
-          partialTokens++;
-        }
-      }
-    });
-    
-    return { totalTokens, partialTokens };
-  }, [rowSelection, walletData, collectAmounts]);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     // Here you would implement the actual transaction logic
     console.log("Collecting tokens to:", {
@@ -84,9 +83,27 @@ export function CollectTokensModal({
       destinationToken: "USDC",
       destinationChain,
       estimatedAmount,
-      collectAmounts
+      collectedTokens
     })
-    
+
+    if (!walletClient) {
+      console.error("Wallet not connected")
+      return
+    }
+    const sourceChainIds = collectedTokens.map(token => Number(availableChains.find(chain => chain.name === token.chain)!.chainId));
+    const destinationChainId = Number(availableChains.find(chain => chain.id === destinationChain)!.chainId);
+
+    if (!isAddress(destinationWallet)) {
+      console.error("Invalid destination wallet address")
+      return
+    }
+
+    const destinationAddress = getAddress(destinationWallet)
+
+    const amounts = collectedTokens.map(token => token.amountToCollect.toString());
+
+    await executeTransfers(sourceChainIds, destinationChainId, destinationAddress, amounts, walletClient as WalletClient<HttpTransport, Chain, Account>)
+
     // Close the dialog after submission
     setOpen(false)
   }
@@ -233,10 +250,45 @@ export function CollectTokensModal({
               Includes a 0.5% conversion fee
             </div>
           </div>
+          {currentStep === "burning" && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Step 1/3</AlertTitle>
+              <AlertDescription>Burning tokens...</AlertDescription>
+            </Alert>
+          )}
+          {currentStep === "waiting-attestation" && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Step 2/3</AlertTitle>
+              <AlertDescription>Waiting for attestation...</AlertDescription>
+            </Alert>
+          )}
+          {currentStep === "minting" && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Step 3/3</AlertTitle>
+              <AlertDescription>Minting tokens...</AlertDescription>
+            </Alert>
+          )}
+          {currentStep === "completed" && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Success</AlertTitle>
+              <AlertDescription>Tokens collected successfully</AlertDescription>
+            </Alert>
+          )}
+          {currentStep === "error" && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>Error collecting tokens</AlertDescription>
+            </Alert>
+          )}
           
-          <DialogFooter className="pt-4">
+          <DialogFooter className="pt-4 flex flex-col gap-2">
             <Button type="submit" className="w-full py-5 text-base">
-              Send Transaction
+              Consolidate
             </Button>
           </DialogFooter>
         </form>

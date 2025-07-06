@@ -9,6 +9,17 @@ import {
     linea,
   } from 'viem/chains'
 
+  export const chains = {
+    [mainnet.id]: mainnet,
+    [avalanche.id]: avalanche,
+    [optimism.id]: optimism,
+    [arbitrum.id]: arbitrum,
+    [base.id]: base,
+    [polygon.id]: polygon,
+    [unichain.id]: unichain,
+    [linea.id]: linea,
+  }
+
   export const tokenAddresses = {
   [mainnet.id]:   '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
   [avalanche.id]: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',

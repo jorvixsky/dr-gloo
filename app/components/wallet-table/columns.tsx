@@ -46,7 +46,7 @@ function getExplorerUrl(chain: string, tokenAddress: string): string {
     case "Arbitrum":
       baseUrl = "https://arbiscan.io";
       break;
-    case "Optimism":
+    case "OP Mainnet":
       baseUrl = "https://optimistic.etherscan.io";
       break;
   }
